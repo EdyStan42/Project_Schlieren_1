@@ -1,0 +1,122 @@
+import cv2
+import numpy as np
+
+# Path to the input video
+input_video_path = r"D:\Proiect 1-BOS\My_Test_Videos\test10.mp4"
+output_video_path = r"D:\Proiect 1-BOS\Fine_Tuning\Talos45_BrightMotion.avi"
+
+# Video properties
+alpha = 1.0  # Transparency for processed frame
+contrast_boost = 6  # Contrast enhancement strength
+gamma_correction_value = 3  # Enhances motion visibility
+lower_threshold_value = 0  # Eliminates weak pixel noise
+motion_boost_factor = 1.8  # Enhances motion visibility dynamically
+window_width, window_height = 800, 600  # Desired window size
+
+# Open the input video
+cap = cv2.VideoCapture(input_video_path)
+
+if not cap.isOpened():
+    print("Error: Could not open video.")
+    exit()
+
+# Get video properties
+frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+fourcc = cv2.VideoWriter_fourcc(*"XVID")
+
+# Initialize video writer for output video
+out = cv2.VideoWriter(output_video_path, fourcc, fps, (frame_width, frame_height))
+
+# Read the first frame as the initial reference frame
+ret, reference_frame = cap.read()
+if not ret:
+    print("Error: Could not read the first frame.")
+    exit()
+
+# Convert reference frame to grayscale
+reference_frame_gray = cv2.cvtColor(reference_frame, cv2.COLOR_BGR2GRAY)
+
+# CLAHE for enhanced contrast
+clahe = cv2.createCLAHE(clipLimit=contrast_boost, tileGridSize=(8, 8))
+
+cv2.namedWindow("Processed Frame", cv2.WINDOW_NORMAL)
+
+while True:
+    # Read the next frame
+    ret, current_frame = cap.read()
+    if not ret:
+        break  # Exit when no more frames
+
+    # Convert frame to grayscale
+    current_frame_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+
+    # Compute frame difference (motion detection)
+    frame_difference = cv2.absdiff(reference_frame_gray, current_frame_gray)
+
+    # Apply lower threshold to remove weak intensity variations
+    frame_difference[frame_difference < lower_threshold_value] = 0
+
+    # **Contour-Based ROI Masking**
+    edges = cv2.Canny(current_frame_gray, 50, 150)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    mask = np.zeros_like(current_frame_gray)
+    for cnt in contours:
+        if cv2.contourArea(cnt) > 1:  # Selecting small contours
+            cv2.drawContours(mask, [cnt], -1, (255), thickness=cv2.FILLED)
+
+    kernel = np.ones((5, 5), np.uint8)
+    dilated_mask = cv2.dilate(mask, kernel, iterations=2)
+
+    # Apply the mask to frame difference
+    selective_difference = cv2.bitwise_and(frame_difference, dilated_mask)
+
+    # Apply **motion boost** → Amplifies pixel values where movement is stronger
+    boosted_difference = np.clip(selective_difference * motion_boost_factor, 0, 255).astype(np.uint8)
+
+    # Apply CLAHE for contrast improvement
+    enhanced_difference = clahe.apply(boosted_difference)
+
+    # Normalize difference for better visualization
+    normalized_difference = cv2.normalize(enhanced_difference, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+    # Apply Gamma Correction for extreme clarity
+    gamma_corrected = np.power(normalized_difference / 255.0, gamma_correction_value) * 255.0
+    gamma_corrected = gamma_corrected.astype(np.uint8)
+
+    # Apply COLORMAP_TURBO for more intense motion visualization
+    color_mapped_difference = cv2.applyColorMap(gamma_corrected, cv2.COLORMAP_TURBO)
+
+    # Resize output frame to fit window while maintaining aspect ratio
+    aspect_ratio = frame_width / frame_height
+    if window_width / window_height > aspect_ratio:
+        new_height = window_height
+        new_width = int(window_height * aspect_ratio)
+    else:
+        new_width = window_width
+        new_height = int(window_width / aspect_ratio)
+
+    resized_frame = cv2.resize(color_mapped_difference, (new_width, new_height))
+
+    # Show processed frame
+    cv2.imshow("Processed Frame", resized_frame)
+
+    # Check for key press events
+    key = cv2.waitKey(1) & 0xFF
+    if key == 32:  # Spacebar pressed (ASCII 32) → Update reference frame
+        reference_frame_gray = current_frame_gray.copy()
+        print("Reference frame updated to current frame!")
+
+    elif key == 27:  # ESC to exit
+        break
+
+    # Write processed frame to output video
+    out.write(color_mapped_difference)
+
+# Release resources
+cap.release()
+out.release()
+cv2.destroyAllWindows()
+print("BOS video with **Boosted Motion Visibility & Contour-Based ROI Processing** complete. Output saved at:", output_video_path)

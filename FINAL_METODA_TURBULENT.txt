@@ -1,0 +1,190 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Paths for input/output videos
+input_video_path = r"D:\Proiect 1-BOS\My_Test_Videos\test20.mp4"
+output_video_path = r"D:\Proiect 1-BOS\Fine_Tuning\ZFluctuation_Speed.avi"
+
+# Real-world dimensions of the background (meters)
+background_width_m = 0.8 # Actual width
+background_height_m = 0.4  # Actual height
+
+# Processing Parameters
+alpha = 1.0  # Transparency blending
+contrast_boost = 6
+gamma_correction_value = 3
+motion_boost_factor = 1.8
+lower_threshold_value = 0
+window_width, window_height = 1080,1920
+# Open the video
+cap = cv2.VideoCapture(input_video_path)
+if not cap.isOpened():
+    print("Error: Could not open video.")
+    exit()
+
+# Get video properties
+orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+fourcc = cv2.VideoWriter_fourcc(*"XVID")
+
+# Initialize video writer
+out = cv2.VideoWriter(output_video_path, fourcc, fps, (orig_width, orig_height))
+
+# Compute pixel-to-meter scale factors
+scale_factor_x = background_width_m / orig_width
+scale_factor_y = background_height_m / orig_height
+
+# Read first frame
+ret, first_frame = cap.read()
+if not ret:
+    print("Error: Could not read the first frame.")
+    exit()
+
+# Uncolor first frame for processing
+first_frame_gray = cv2.cvtColor(first_frame, cv2.COLOR_BGR2GRAY)
+
+# Initialize contrast enhancement
+clahe = cv2.createCLAHE(clipLimit=contrast_boost, tileGridSize=(8, 8))
+
+# Select ROI on the First Frame
+
+aspect_ratio = orig_width / orig_height
+
+roi = cv2.selectROI("Select Measurement Area", first_frame, fromCenter=False, showCrosshair=True)
+cv2.destroyWindow("Select Measurement Area")
+
+# Convert ROI coordinates to integers
+x1, y1, width, height = map(int, roi)
+x2, y2 = x1 + width, y1 + height
+
+# Begin Processing
+previous_frame_gray = first_frame_gray.copy()
+speed_log = []
+
+frame_count=0
+
+while True:
+    # Update frame counter
+    frame_count += 1
+
+    # Read the next frame
+    ret, current_frame = cap.read()
+    if not ret:
+        break
+
+
+    # Convert frame to grayscale
+    current_frame_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+
+    # Compute frame difference (motion detection)
+    frame_difference = cv2.absdiff(previous_frame_gray, current_frame_gray)
+    frame_difference[frame_difference < lower_threshold_value] = 0
+
+    # Apply Motion Boost
+    boosted_difference = np.clip(frame_difference * motion_boost_factor, 0, 255).astype(np.uint8)
+
+    # Apply CLAHE for contrast improvement
+    enhanced_difference = clahe.apply(boosted_difference)
+
+    # Normalize and apply Gamma Correction
+    normalized_difference = cv2.normalize(enhanced_difference, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    gamma_corrected = np.power(normalized_difference / 255.0, gamma_correction_value) * 255.0
+    gamma_corrected = gamma_corrected.astype(np.uint8)
+
+    # Apply COLORMAP_TURBO for visualization
+    color_mapped_difference = cv2.applyColorMap(gamma_corrected, cv2.COLORMAP_TURBO)
+
+    # **Contour-Based ROI Masking**
+    edges = cv2.Canny(current_frame_gray, 50, 150)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    mask = np.zeros_like(current_frame_gray)
+    for cnt in contours:
+        if cv2.contourArea(cnt) > 1:  # Selecting small contours
+            cv2.drawContours(mask, [cnt], -1, (255), thickness=cv2.FILLED)
+
+    kernel = np.ones((5, 5), np.uint8)
+    dilated_mask = cv2.dilate(mask, kernel, iterations=2)
+
+    # Apply the mask to frame difference
+    selective_difference = cv2.bitwise_and(boosted_difference, dilated_mask)
+
+    # Define an intensity change threshold for detecting motion
+    intensity_threshold = 15  # Adjust based on contrast level
+
+    # Extract ROI region from grayscale frame
+    roi_intensity_prev = previous_frame_gray[y1:y2, x1:x2]
+    roi_intensity_curr = current_frame_gray[y1:y2, x1:x2]
+
+    # Compute intensity difference between consecutive frames
+    intensity_variation = cv2.absdiff(roi_intensity_prev, roi_intensity_curr)
+
+    # Calculate mean intensity change in the ROI
+    avg_intensity_change = np.mean(intensity_variation)
+
+    # Convert intensity change to estimated speed (m/s)
+    real_speed = (avg_intensity_change * fps) / 255.0  # Normalized speed value
+
+    # Ensure speed calculation is stable (avoid NaN errors)
+    real_speed = real_speed if np.any(roi_intensity_curr) else 0
+
+    # Log speed data
+    speed_log.append(real_speed)
+
+    # Display Speed Overlay
+    cv2.putText(current_frame, f"Speed: {real_speed:.2f} m/s",
+                (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    # Log speed data for plotting
+    speed_log.append(real_speed)
+
+    # **Draw ROI & Speed Overlay**
+    cv2.rectangle(color_mapped_difference, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    cv2.putText(color_mapped_difference, f"Speed: {real_speed:.2f} m/s",
+                (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+    # **Blend processed frame using Alpha**
+    blended_frame = cv2.addWeighted(color_mapped_difference, alpha, current_frame, 1 - alpha, 0)
+
+    # Resize output frame to fit window while maintaining aspect ratio
+    aspect_ratio = orig_width / orig_height
+    if window_width / window_height > aspect_ratio:
+        new_height = window_height
+        new_width = int(window_height * aspect_ratio)
+    else:
+        new_width = window_width
+        new_height = int(window_width / aspect_ratio)
+
+    resized_frame = cv2.resize(color_mapped_difference, (new_width, new_height))
+
+    # Show processed frame
+    cv2.imshow("Processed Frame", resized_frame)
+
+    # Update previous frame for next iteration
+    previous_frame_gray = current_frame_gray.copy()
+
+    # Key press events
+    key = cv2.waitKey(1) & 0xFF
+    if key == 27:
+        break
+
+    # Write processed frame to output video
+    out.write(blended_frame)
+
+# Release resources
+cap.release()
+out.release()
+cv2.destroyAllWindows()
+
+# **Plot Speed vs. Time**
+plt.figure(figsize=(8, 5))
+plt.plot(range(len(speed_log)), speed_log, marker='o', linestyle='-', color='b', label="Flow Speed (m/s)")
+plt.xlabel("Frame Number")
+plt.ylabel("Speed (m/s)")
+plt.title("Flow Speed Over Time")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+print("BOS video with real-world speed measurement complete. Output saved at:", output_video_path)
