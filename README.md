@@ -13,8 +13,7 @@ The traditional Schlieren setup is highly sensitive and relies on a physical man
 *   **Optical Refraction:** As hot air rises, its density drops according to the ideal gas law approximation $\rho=\frac{M P}{R T}$[cite: 1]. This hot air acts similarly to a thin divergent lens, deflecting light rays. 
 *   **Visualization:** Rays that would normally hit the obstacle are deflected into the camera lens, creating bright spots, while rays that would normally enter the lens are blocked, creating shadows[cite: 1].
 
-<!-- ADD YOUR ANALOG EXPERIMENT FRAMES BELOW THIS COMMENT -->
-<!-- Example: <img src="path/to/analog_frames.jpg" alt="Frames from Classic Schlieren Experiment" width="600"/> -->
+![Example Image](Output frames/Screenshot 2025-05-04 205135.png)
 
 ## Background Oriented Schlieren (BOS) & Digital Processing
 To bypass the need for precise, expensive optical mirrors, this project implements Background Oriented Schlieren (BOS) using Python[cite: 1]. This method relies on tracking the distortion of a specific high-contrast background pattern[cite: 1].
