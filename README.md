@@ -13,13 +13,12 @@ The traditional Schlieren setup is highly sensitive and relies on a physical man
 *   **Optical Refraction:** As hot air rises, its density drops according to the ideal gas law approximation $\rho=\frac{M P}{R T}$[cite: 1]. This hot air acts similarly to a thin divergent lens, deflecting light rays. 
 *   **Visualization:** Rays that would normally hit the obstacle are deflected into the camera lens, creating bright spots, while rays that would normally enter the lens are blocked, creating shadows[cite: 1].
 
-![Example Image](Output_frames/Screenshot_2025-05-04_205135.png)
+![Example Image](image.png)
 
 ## Background Oriented Schlieren (BOS) & Digital Processing
 To bypass the need for precise, expensive optical mirrors, this project implements Background Oriented Schlieren (BOS) using Python[cite: 1]. This method relies on tracking the distortion of a specific high-contrast background pattern[cite: 1].
 
-<!-- ADD YOUR BACKGROUND IMAGE/PATTERN BELOW THIS COMMENT -->
-<!-- Example: <img src="path/to/background_pattern.jpg" alt="Static Black and White Background" width="600"/> -->
+![Example_bground](b2.png)
 
 The Python image processing pipeline extracts fluid velocity through the following steps:
 *   **Reference Comparison:** The software compares current frames against either a fixed reference frame (to see absolute density changes) or adjacent frames (to measure fluid velocity)[cite: 1].
@@ -27,8 +26,6 @@ The Python image processing pipeline extracts fluid velocity through the followi
 *   **Velocity Calculation:** The speed of pixel intensity fluctuations is translated into real-world velocity using the frame rate formula $V=v_{f}F_{ps}$[cite: 1].
 *   **Algorithmic Enhancements:** The pipeline applies CLAHE (Contrast Limited Adaptive Histogram Equalization) and contour masking to filter out the heat source itself and enhance the visibility of the gas flow[cite: 1].
 
-<!-- ADD YOUR COMPUTATIONAL OUTPUT VIDEO BELOW THIS COMMENT -->
-<!-- Example: <video src="path/to/computational_output.mp4" controls width="600"></video> -->
 
 ## Mathematical Verification and Future Scope
 To ensure the computer vision outputs are physically accurate, the software's measurements are validated against theoretical thermodynamic models[cite: 1].
