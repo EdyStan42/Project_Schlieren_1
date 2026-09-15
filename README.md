@@ -13,12 +13,12 @@ The traditional Schlieren setup is highly sensitive and relies on a physical man
 *   **Optical Refraction:** As hot air rises, its density drops according to the ideal gas law approximation $\rho=\frac{M P}{R T}$[cite: 1]. This hot air acts similarly to a thin divergent lens, deflecting light rays. 
 *   **Visualization:** Rays that would normally hit the obstacle are deflected into the camera lens, creating bright spots, while rays that would normally enter the lens are blocked, creating shadows[cite: 1].
 
-![Example Image](image.png)
+![Example Image](Output_frames/image.png)
 
 ## Background Oriented Schlieren (BOS) & Digital Processing
 To bypass the need for precise, expensive optical mirrors, this project implements Background Oriented Schlieren (BOS) using Python[cite: 1]. This method relies on tracking the distortion of a specific high-contrast background pattern[cite: 1].
 
-![Example_bground](b2.png)
+![Example_bground](Output_frames/b2.png)
 
 The Python image processing pipeline extracts fluid velocity through the following steps:
 *   **Reference Comparison:** The software compares current frames against either a fixed reference frame (to see absolute density changes) or adjacent frames (to measure fluid velocity)[cite: 1].
@@ -26,6 +26,7 @@ The Python image processing pipeline extracts fluid velocity through the followi
 *   **Velocity Calculation:** The speed of pixel intensity fluctuations is translated into real-world velocity using the frame rate formula $V=v_{f}F_{ps}$[cite: 1].
 *   **Algorithmic Enhancements:** The pipeline applies CLAHE (Contrast Limited Adaptive Histogram Equalization) and contour masking to filter out the heat source itself and enhance the visibility of the gas flow[cite: 1].
 
+![Example](Output_frames/5.png)
 
 ## Mathematical Verification and Future Scope
 To ensure the computer vision outputs are physically accurate, the software's measurements are validated against theoretical thermodynamic models[cite: 1].
